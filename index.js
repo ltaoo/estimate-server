@@ -5,8 +5,9 @@ function noop() {}
 
 let roomId = 0;
 // 一个全局的客户端存储，每个客户端表示一个用户，正常来说是保存到数据库比如 redis 中
-let users = [];
+let globalUsers = [];
 let globalRooms = [];
+let globalEstimates = [];
 
 io.on('connection', client => {
     // 它这里是「监听」连接，所以 client 是有多个的！！！
@@ -20,7 +21,7 @@ io.on('connection', client => {
         username,
     };
 
-    users.push(user);
+    globalUsers.push(user);
 
     // 向全局广播有新用户加入
     // io.emit('join', { user });
@@ -30,6 +31,11 @@ io.on('connection', client => {
     client.on('joinRoom', handleJoinRoom.bind(null, client));
 
     client.on('startEstimate', handleStartEstimate.bind(null, client));
+    client.on('estimate', handleEstimate.bind(null, client));
+    client.on('restartEstimate', handleRestartEstimate.bind(null, client));
+    client.on('endEstimate', handleEndEstimate.bind(null, client));
+
+    client.on('showResult', handleShowResult.bind(null, client));
 
     client.on('disconnect', handleDisconnect.bind(null, client));
 });
@@ -46,7 +52,7 @@ function handleCreateRoom(client, data, cb) {
     const { id } = client;
     roomId += 1;
     console.log('create room', roomId);
-    const owner = users.find(user => user.id === id);
+    const owner = globalUsers.find(user => user.id === id);
     if (!owner) {
         client('error', { message: `用户 ${id} 不存在` });
         return;
@@ -60,7 +66,7 @@ function handleCreateRoom(client, data, cb) {
     const roomMemberIds = Object.keys(client.rooms);
     cb({
         roomId: roomIdStr,
-        users: users.filter(user => roomMemberIds.includes(user.id)),
+        users: globalUsers.filter(user => roomMemberIds.includes(user.id)),
     });
 }
 
@@ -68,7 +74,7 @@ function handleJoinRoom(client, data = {}, cb = noop) {
     const { id } = client;
     const { roomId } = data;
     const roomIdStr = String(roomId);
-    const user = users.find(u => u.id === id);
+    const user = globalUsers.find(u => u.id === id);
     if (!user) {
         console.log(`${id} 不存在`);
         client.emit('err', {
@@ -92,7 +98,7 @@ function handleJoinRoom(client, data = {}, cb = noop) {
     }
     client.join(roomIdStr);
     const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomIdStr].sockets);
-    const roomMembers = users.filter(user => roomMemberIds.includes(user.id));
+    const roomMembers = globalUsers.filter(user => roomMemberIds.includes(user.id));
     console.log(roomMembers);
     // 想要加入的房间广播有人加入房间
     io.sockets.to(roomIdStr).emit('joinRoom', {
@@ -120,9 +126,80 @@ function handleStartEstimate(client, data) {
     io.sockets.to(roomIdStr).emit('startEstimate');
 }
 
+function handleEstimate(client, data) {
+    const { id } = client;
+    const { value, roomId } = data;
+    const user = findUserById(id, globalUsers);
+    console.log(`${user.username} give estimate ${value}`);
+    globalEstimates.push({
+        id,
+        username: user.username,
+        value,
+    });
+    io.sockets.to(roomId).emit('estimate', { user, estimate: value, estimates: globalEstimates });
+    const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomId].sockets);
+    const userNumber = roomMemberIds.length;
+    // 如果给出估时的人数等于总人数，就通知客户端展示估时
+    console.log('可以展示结果了', userNumber, globalEstimates.length);
+    if (globalEstimates.length === userNumber) {
+        io.sockets.to(roomId).emit('showEstimate');
+    }
+}
+
+function updateEstimate(client, data) {
+    const { id } = client;
+    const { value, roomId } = data;
+    const user = findUserById(id, globalUsers);
+    console.log(`${user.username} update estimate ${value}`);
+    const prevEstimate = findEstimateById(id, globalEstimates);
+    prevEstimate.value = value;
+    io.sockets.to(roomId).emit('estimate', { user, estimate: value, estimates: globalEstimates });
+    const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomId].sockets);
+    const userNumber = roomMemberIds.length;
+    // 如果给出估时的人数等于总人数，就通知客户端展示估时
+    console.log('可以展示结果了', userNumber, globalEstimates.length);
+    if (globalEstimates.length === userNumber) {
+        io.sockets.to(roomId).emit('showEstimate');
+    }
+}
+
+function handleEndEstimate(client, data) {
+    const { roomId } = data;
+    globalEstimates = [];
+    io.sockets.to(roomId).emit('restartEstimate');
+}
+
+function handleShowResult(client, data) {
+    const { roomId } = data;
+    io.sockets.to(roomId).emit('showResult');
+}
+
+function handleRestartEstimate(client, data) {
+    const { roomId } = data;
+    globalEstimates = [];
+    io.sockets.to(roomId).emit('restartEstimate');
+}
+
 function handleDisconnect(client, data) {
+    const { id } = client;
     // 断开连接后移除用户
-    users = users.filter(user => user.id !== client.id);
+    globalUsers = globalUsers.filter(user => user.id !== client.id);
+    globalEstimates = globalEstimates.filter(e => e.id !== id);
     // 判断下房间还有多少人，如果没有了就移除房间
     console.log(`${client.id} is disconnect`);
+}
+
+function findUserById(id, users) {
+    const user = users.find(u => u.id === id);
+    return user;
+}
+
+function findRoomById(id, rooms) {
+    const room = rooms.find(r => r.id === id);
+    return room;
+}
+
+function findEstimateById(id, estimates) {
+    const estimate = estimates.find(r => r.id === id);
+    return estimate;
 }
