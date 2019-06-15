@@ -1,9 +1,12 @@
 const server = require('http').createServer();
 const io = require('socket.io')(server);
 
+function noop() {}
+
 let roomId = 0;
 // 一个全局的客户端存储，每个客户端表示一个用户，正常来说是保存到数据库比如 redis 中
 let users = [];
+let globalRooms = [];
 
 io.on('connection', client => {
     // 它这里是「监听」连接，所以 client 是有多个的！！！
@@ -26,6 +29,8 @@ io.on('connection', client => {
 
     client.on('joinRoom', handleJoinRoom.bind(null, client));
 
+    client.on('startEstimate', handleStartEstimate.bind(null, client));
+
     client.on('disconnect', handleDisconnect.bind(null, client));
 });
 
@@ -47,6 +52,8 @@ function handleCreateRoom(client, data, cb) {
         return;
     }
     const roomIdStr = String(roomId);
+    // 将新创建的房间加入全局变量
+    globalRooms.push({ id: roomIdStr, status: true });
     owner.roomId = roomIdStr;
     owner.admin = true;
     client.join(roomIdStr);
@@ -57,22 +64,65 @@ function handleCreateRoom(client, data, cb) {
     });
 }
 
-function handleJoinRoom(client, data) {
-    const { roomId, username } = data;
-    users.push({
-        id: client.id,
-        username,
-    });
+function handleJoinRoom(client, data = {}, cb = noop) {
+    const { id } = client;
+    const { roomId } = data;
+    const roomIdStr = String(roomId);
+    const user = users.find(u => u.id === id);
+    if (!user) {
+        console.log(`${id} 不存在`);
+        client.emit('err', {
+            message: '用户不存在',
+        });
+        return;
+    }
+    console.log(`${id} ${user.username} join room ${roomIdStr}`);
+    const selectedRoom = globalRooms.find(r => r.id === roomIdStr);
+    if (!selectedRoom) {
+        const errorMessage = '该房间不存在';
+        client.emit('err', new Error(errorMessage));
+        cb(errorMessage);
+        return;
+    }
+    if (selectedRoom.status === false) {
+        const errorMessage = '已经开始估时';
+        client.emit('err', new Error(errorMessage));
+        cb(errorMessage);
+        return;
+    }
+    client.join(roomIdStr);
+    const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomIdStr].sockets);
+    const roomMembers = users.filter(user => roomMemberIds.includes(user.id));
+    console.log(roomMembers);
     // 想要加入的房间广播有人加入房间
-    io.sockets.in(roomId).emit('joinRoom', {
-        id: client.id,
-        username,
-        users,
+    io.sockets.to(roomIdStr).emit('joinRoom', {
+        user,
+        users: roomMembers,
     });
+    cb(null, {
+        user,
+        roomId: roomIdStr,
+        users: roomMembers,
+    });
+}
+
+function handleStartEstimate(client, data) {
+    const { roomId } = data;
+    const roomIdStr = String(roomId);
+    const selectedRoom = globalRooms.find(r => r.id === roomIdStr);
+    if (!selectedRoom) {
+        const errorMessage = '该房间不存在';
+        client.emit('err', new Error(errorMessage));
+        cb(errorMessage);
+        return;
+    }
+    selectedRoom.status = false;
+    io.sockets.to(roomIdStr).emit('startEstimate');
 }
 
 function handleDisconnect(client, data) {
     // 断开连接后移除用户
     users = users.filter(user => user.id !== client.id);
+    // 判断下房间还有多少人，如果没有了就移除房间
     console.log(`${client.id} is disconnect`);
 }
