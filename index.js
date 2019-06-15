@@ -32,6 +32,7 @@ io.on('connection', client => {
 
     client.on('startEstimate', handleStartEstimate.bind(null, client));
     client.on('estimate', handleEstimate.bind(null, client));
+    client.on('updateEstimate', handleUpdateEstimate.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('endEstimate', handleEndEstimate.bind(null, client));
 
@@ -140,13 +141,13 @@ function handleEstimate(client, data) {
     const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomId].sockets);
     const userNumber = roomMemberIds.length;
     // 如果给出估时的人数等于总人数，就通知客户端展示估时
-    console.log('可以展示结果了', userNumber, globalEstimates.length);
+    console.log('input estimate', userNumber, globalEstimates.length);
     if (globalEstimates.length === userNumber) {
         io.sockets.to(roomId).emit('showEstimate');
     }
 }
 
-function updateEstimate(client, data) {
+function handleUpdateEstimate(client, data) {
     const { id } = client;
     const { value, roomId } = data;
     const user = findUserById(id, globalUsers);
@@ -157,7 +158,7 @@ function updateEstimate(client, data) {
     const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomId].sockets);
     const userNumber = roomMemberIds.length;
     // 如果给出估时的人数等于总人数，就通知客户端展示估时
-    console.log('可以展示结果了', userNumber, globalEstimates.length);
+    console.log('update estimate', userNumber, globalEstimates.length);
     if (globalEstimates.length === userNumber) {
         io.sockets.to(roomId).emit('showEstimate');
     }
