@@ -9,7 +9,7 @@ const roomStore = require('./roomStore');
 const utils = require('./utils');
 
 const { noop, genRoomId } = utils;
-const { addUser, removeUser, findUser } = userStore;
+const { addUser, removeUser, findUser, findUserByName } = userStore;
 const { getRooms, addRoom, removeRoom, findRoom } = roomStore;
 
 let globalEstimates = [];
@@ -18,17 +18,25 @@ io.on('connection', client => {
     const { username } = client.handshake.query;
     console.log('new connection', client.id, username);
 
-    const user = new User({
-        id: client.id,
-        name: username,
-        client,
-    });
-
-    addUser(user);
-
+    // 在客户端连接后，去数据处理查询该用户是否已经连接过
+    let user = findUserByName(username);
+    if (user) {
+        // 如果用户已存在
+        user.updateClient(client);
+        console.log(`${user.name} exist`);
+        client.emit('recover', { user });
+    } else {
+        user = new User({
+            id: client.id,
+            name: username,
+            client,
+        });
+        console.log(`new user ${user.name}`);
+        addUser(user);
+        client.emit('loginSuccess', { user, rooms: getRooms() });
+    }
     // 向全局广播有新用户加入
     io.emit('newConnection', { user });
-    client.emit('getRooms', { rooms: getRooms() });
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
     client.on('joinRoom', handleJoinRoom.bind(null, client));
@@ -176,24 +184,28 @@ function handleRestartEstimate(client, data) {
  */
 function handleDisconnect(client) {
     const { id } = client;
+    console.log(`${client.id} is disconnect`);
     const user = findUser(id);
+    if (!user) {
+        client.emit('err', { message: `${id} 用户不存在` });
+        return;
+    }
     // 从用户上拿到房间 id，向该房间的用户广播有人退出了
     const { joinedRoomId: roomId } = user;
-    // 断开连接后移除用户
-    removeUser(id);
+    // 断开连接后不移除用户，只有当客户端主动注销，才会移除用户
+    // removeUser(id);
     globalEstimates = globalEstimates.filter(e => e.id !== id);
-    console.log(`${client.id} ${user.name} is disconnect`);
     const room = findRoom(roomId);
     if (!room) {
-        console.log(`${roomId} not exist`);
+        console.log(`room ${roomId} not exist`);
         return;
     }
     // 如果从房间离开前，只剩一个人了，在离开后就可以移除房间
-    if (room.members.length === 1) {
-        removeRoom(room);
-        io.emit('updateRooms', { rooms: getRooms() });
-        return;
-    }
+    // if (room.members.length === 1) {
+    //     removeRoom(room);
+    //     io.emit('updateRooms', { rooms: getRooms() });
+    //     return;
+    // }
     room.removeMember(user);
     io.sockets.to(roomId).emit('leaveRoom', { user, users: room.members });
 }

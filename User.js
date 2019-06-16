@@ -1,7 +1,6 @@
 class User {
     constructor(params) {
         const { id, name, client } = params;
-        const clientKey = Symbol('client');
         this.id = id;
         this.name = name;
         // 加入的房间
@@ -10,7 +9,13 @@ class User {
         this.createdRoomId = null;
 
         this.estimate = null;
-        this[clientKey] = client;
+
+        // const clientKey = Symbol('client');
+        // this[clientKey] = client;
+    }
+
+    updateClient(client) {
+        this.id = client.id;
     }
     
     createRoom(room) {
