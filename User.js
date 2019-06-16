@@ -9,8 +9,10 @@ class User {
     
     createRoom(room) {
         const { id } = room;
-        this.isAdmin = true;
-        this.joinedRoomId = id;
+        this.isAdmintor = true;
+        this.createdRoomId = id;
+
+        room.addMember(this);
     }
 }
 

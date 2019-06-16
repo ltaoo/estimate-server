@@ -62,54 +62,44 @@ function handleCreateRoom(client, data, cb) {
         return;
     }
     const roomId = genRoomId();
-    const newRoom = new Room({ id: roomId });
+    const newRoom = new Room({ id: roomId, admintor: owner });
     globalRooms.push(newRoom);
 
     client.join(roomId);
     owner.createRoom(newRoom);
-    cb({
+    const roomMembers = newRoom.members;
+    io.sockets.to(roomId).emit('joinRoom', {
         roomId,
+        user: owner,
+        users: roomMembers,
     });
 }
 
-function handleJoinRoom(client, data = {}, cb = noop) {
+function handleJoinRoom(client, { roomId } = {}) {
     const { id } = client;
-    const { roomId } = data;
-    const roomIdStr = String(roomId);
-    const user = globalUsers.find(u => u.id === id);
+    const user = findUserById(id, globalUsers);
     if (!user) {
-        console.log(`${id} 不存在`);
-        client.emit('err', {
-            message: '用户不存在',
-        });
+        client.emit('err', { message: `用户 ${id} 不存在` });
         return;
     }
-    console.log(`${id} ${user.username} join room ${roomIdStr}`);
-    const selectedRoom = globalRooms.find(r => r.id === roomIdStr);
-    if (!selectedRoom) {
-        const errorMessage = '该房间不存在';
-        client.emit('err', new Error(errorMessage));
-        cb(errorMessage);
+    console.log(`${id} ${user.name} join room ${roomId}`);
+    const room = findRoomById(roomId, globalRooms);
+    if (!room) {
+        const errorMessage = { message: `房间 ${roomId} 不存在` };
+        client.emit('err', errorMessage);
         return;
     }
-    if (selectedRoom.status === false) {
-        const errorMessage = '已经开始估时';
-        client.emit('err', new Error(errorMessage));
-        cb(errorMessage);
+    if (room.status === Room.STATUS.STARTED) {
+        const errorMessage = { message: `${roomId} 已经开始估时` };
+        client.emit('err', errorMessage);
         return;
     }
-    client.join(roomIdStr);
-    const roomMemberIds = Object.keys(io.nsps['/'].adapter.rooms[roomIdStr].sockets);
-    const roomMembers = globalUsers.filter(user => roomMemberIds.includes(user.id));
-    console.log(roomMembers);
-    // 想要加入的房间广播有人加入房间
-    io.sockets.to(roomIdStr).emit('joinRoom', {
+    client.join(roomId);
+    room.addMember(user);
+    const roomMembers = room.members;
+    io.sockets.to(roomId).emit('joinRoom', {
+        roomId,
         user,
-        users: roomMembers,
-    });
-    cb(null, {
-        user,
-        roomId: roomIdStr,
         users: roomMembers,
     });
 }
