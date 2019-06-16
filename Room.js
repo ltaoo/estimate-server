@@ -23,6 +23,10 @@ class Room {
     removeMember(user) {
         this.members = this.members.filter(member => member !== user);
     }
+
+    updateStatus(nextStatus) {
+        this.status = nextStatus;
+    }
 }
 
 Room.STATUS = {

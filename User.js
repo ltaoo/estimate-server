@@ -8,6 +8,8 @@ class User {
         this.joinedRoomId = null;
         // 自己创建的房间，大部分情况下和 joinedRoomId 是相同的
         this.createdRoomId = null;
+
+        this.estimate = null;
         this[clientKey] = client;
     }
     
@@ -17,6 +19,10 @@ class User {
         this.createdRoomId = id;
 
         room.addMember(this);
+    }
+
+    updateEstimate(value) {
+        this.estimate = value;
     }
 }
 
