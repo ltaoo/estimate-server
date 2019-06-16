@@ -1,25 +1,32 @@
 const server = require('http').createServer();
 const io = require('socket.io')(server);
 
+const Room = require('./Room');
+const User = require('./User');
+
 function noop() {}
 
-let roomId = 0;
+const genRoomId = (function () {
+    let roomId = 0;
+    return () => {
+        roomId += 1;
+        return String(roomId);
+    };
+}());
 // 一个全局的客户端存储，每个客户端表示一个用户，正常来说是保存到数据库比如 redis 中
 let globalUsers = [];
 let globalRooms = [];
 let globalEstimates = [];
 
 io.on('connection', client => {
-    // 它这里是「监听」连接，所以 client 是有多个的！！！
-    // 每个 client 会分配一个唯一 id
-    // io 和 client 都有 emit 方法，但 io 是全局广播, client 是只推送到指定客户端
     const { username } = client.handshake.query;
     console.log('new connection', client.id, username);
 
-    const user = {
+    const user = new User({
         id: client.id,
-        username,
-    };
+        name: username,
+        client,
+    });
 
     globalUsers.push(user);
 
@@ -27,7 +34,6 @@ io.on('connection', client => {
     // io.emit('join', { user });
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
-
     client.on('joinRoom', handleJoinRoom.bind(null, client));
 
     client.on('startEstimate', handleStartEstimate.bind(null, client));
@@ -35,7 +41,6 @@ io.on('connection', client => {
     client.on('updateEstimate', handleUpdateEstimate.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('endEstimate', handleEndEstimate.bind(null, client));
-
     client.on('showResult', handleShowResult.bind(null, client));
 
     client.on('disconnect', handleDisconnect.bind(null, client));
@@ -51,23 +56,19 @@ server.listen(3000, '0.0.0.0', () => {
  */
 function handleCreateRoom(client, data, cb) {
     const { id } = client;
-    roomId += 1;
-    console.log('create room', roomId);
-    const owner = globalUsers.find(user => user.id === id);
+    const owner = findUserById(id, globalUsers);
     if (!owner) {
-        client('error', { message: `用户 ${id} 不存在` });
+        client.emit('err', { message: `用户 ${id} 不存在` });
         return;
     }
-    const roomIdStr = String(roomId);
-    // 将新创建的房间加入全局变量
-    globalRooms.push({ id: roomIdStr, status: true });
-    owner.roomId = roomIdStr;
-    owner.admin = true;
-    client.join(roomIdStr);
-    const roomMemberIds = Object.keys(client.rooms);
+    const roomId = genRoomId();
+    const newRoom = new Room({ id: roomId });
+    globalRooms.push(newRoom);
+
+    client.join(roomId);
+    owner.createRoom(newRoom);
     cb({
-        roomId: roomIdStr,
-        users: globalUsers.filter(user => roomMemberIds.includes(user.id)),
+        roomId,
     });
 }
 
