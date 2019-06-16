@@ -17,6 +17,11 @@ class Room {
 
     addMember(user) {
         this.members.push(user);
+        user.joinedRoomId = this.id;
+    }
+
+    removeMember(user) {
+        this.members = this.members.filter(member => member !== user);
     }
 }
 

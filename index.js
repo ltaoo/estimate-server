@@ -172,18 +172,31 @@ function handleRestartEstimate(client, data) {
     io.sockets.to(roomId).emit('restartEstimate');
 }
 
-function handleDisconnect(client, data) {
+/**
+ * 客户端断开了连接
+ * @param {Client} client 
+ */
+function handleDisconnect(client) {
     const { id } = client;
+    const user = findUserById(id, globalUsers);
+    // 从用户上拿到房间 id，向该房间的用户广播有人退出了
+    const { joinedRoomId: roomId } = user;
     // 断开连接后移除用户
-    globalUsers = globalUsers.filter(user => user.id !== client.id);
+    globalUsers = removeUserById(id, globalUsers);
     globalEstimates = globalEstimates.filter(e => e.id !== id);
     // 判断下房间还有多少人，如果没有了就移除房间
-    console.log(`${client.id} is disconnect`);
+    console.log(`${client.id} ${user.name} is disconnect`);
+    const room = findRoomById(roomId, globalRooms);
+    room.removeMember(user);
+    io.sockets.to(roomId).emit('leaveRoom', { user, users: room.members });
 }
 
 function findUserById(id, users) {
     const user = users.find(u => u.id === id);
     return user;
+}
+function removeUserById(id, users) {
+    return users.filter(user => user.id !== id);
 }
 
 function findRoomById(id, rooms) {
