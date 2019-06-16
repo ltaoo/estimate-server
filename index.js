@@ -32,6 +32,7 @@ io.on('connection', client => {
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
     client.on('joinRoom', handleJoinRoom.bind(null, client));
+    client.on('leaveRoom', handleLeaveRoom.bind(null, client));
 
     client.on('startEstimate', handleStartEstimate.bind(null, client));
     client.on('estimate', handleEstimate.bind(null, client));
@@ -100,6 +101,32 @@ function handleJoinRoom(client, { roomId } = {}) {
     });
 }
 
+function handleLeaveRoom(client, { roomId }) {
+    const { id } = client;
+    const user = findUser(id);
+    if (!user) {
+        client.emit('err', { message: `${id} 用户不存在` });
+        return;
+    }
+    const room = findRoom(roomId);
+    if (!room) {
+        client.emit('err', { message: `${roomId} 房间不存在` });
+        return;
+    }
+    if (room.members.length === 1) {
+        // @TODO 直接从全局移除，这个房间在 io 对象上还存在吗？
+        removeRoom(roomId);
+        io.emit('updateRooms', { rooms: getRooms() });
+        return;
+    }
+    room.removeMember(user);
+    console.log(`${user.name} leave room ${roomId}`);
+    io.sockets.to(roomId).emit('leaveRoom', {
+        user,
+        users: room.members,
+    });
+}
+
 function handleStartEstimate(client, { roomId }) {
     const room = findRoom(roomId);
     if (!room) {
@@ -164,6 +191,7 @@ function handleDisconnect(client) {
     // 如果从房间离开前，只剩一个人了，在离开后就可以移除房间
     if (room.members.length === 1) {
         removeRoom(room);
+        io.emit('updateRooms', { rooms: getRooms() });
         return;
     }
     room.removeMember(user);
