@@ -31,7 +31,7 @@ io.on('connection', client => {
     globalUsers.push(user);
 
     // 向全局广播有新用户加入
-    // io.emit('join', { user });
+    io.emit('newConnection', { user });
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
     client.on('joinRoom', handleJoinRoom.bind(null, client));
