@@ -32,9 +32,15 @@ io.on('connection', client => {
         // 如果用户已经加入房间，在重连后仍然加入
         if (joinedRoomId !== null) {
             const room = findRoom(joinedRoomId);
-            client.join(joinedRoomId);
-            room.addMember(user);
-            data.room = room;
+            if (room !== undefined) {
+                client.join(joinedRoomId);
+                room.addMember(user);
+                data.room = room;
+                io.sockets.to(joinedRoomId).emit('joinRoomSuccess', {
+                    user,
+                    room,
+                });
+            }
         }
         client.emit('recoverSuccess', data);
     } else {
@@ -85,10 +91,9 @@ function handleLogout(client) {
 }
 
 /**
- * @param {Message} data - 客户端传过来的数据
  * @param {Client} client - 客户端
  */
-function handleCreateRoom(client, data) {
+function handleCreateRoom(client) {
     const { id } = client;
     const owner = findUser(id);
     if (!owner) {
@@ -102,7 +107,8 @@ function handleCreateRoom(client, data) {
     client.join(roomId);
     owner.createRoom(newRoom);
     const roomMembers = newRoom.members;
-    io.sockets.to(roomId).emit('joinRoomSuccess', {
+    // 可以向全局广播，让客户端更新大厅的房间列表
+    client.emit('createRoomSuccess', {
         user: owner,
         room: newRoom,
     });
@@ -136,11 +142,15 @@ function handleJoinRoom(client, { roomId } = {}) {
     });
 }
 
-function handleLeaveRoom(client, { roomId }) {
+function handleLeaveRoom(client) {
     const { id } = client;
     const user = findUser(id);
     if (!user) {
         client.emit('err', { message: `${id} 用户不存在` });
+        return;
+    }
+    const { joinedRoomId: roomId } = user;
+    if (roomId === null) {
         return;
     }
     const room = findRoom(roomId);
@@ -158,6 +168,7 @@ function handleLeaveRoom(client, { roomId }) {
     console.log(`${user.name} leave room ${roomId}`);
     io.sockets.to(roomId).emit('leaveRoom', {
         user,
+        room,
     });
 }
 
@@ -226,7 +237,7 @@ function handleDisconnect(client) {
             return;
         }
         room.removeMember(user);
-        io.sockets.to(roomId).emit('leaveRoom', { user, users: room.members });
+        io.sockets.to(roomId).emit('leaveRoom', { user, room });
     }
 
     // 如果从房间离开前，只剩一个人了，在离开后就可以移除房间
