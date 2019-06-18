@@ -11,7 +11,8 @@ class User {
         this.joinedRoomId = null;
         // 自己创建的房间，大部分情况下和 joinedRoomId 是相同的
         this.createdRoomId = null;
-
+        // 是否正在估时
+        this.estimating = false;
         this.estimate = null;
 
         // const clientKey = Symbol('client');
@@ -28,6 +29,10 @@ class User {
         this.createdRoomId = id;
 
         room.addMember(this);
+    }
+
+    startEstimate() {
+        this.estimating = true;
     }
 
     updateEstimate(value) {
