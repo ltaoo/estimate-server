@@ -1,6 +1,10 @@
 const ENABLE = 'ENABLE';
 const STARTED = 'STARTED';
 
+/**
+ * ----------------------------------
+ * | id | status | creator |
+ */
 class Room {
     constructor(params) {
         const { id, admintor } = params;

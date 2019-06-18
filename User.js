@@ -1,3 +1,7 @@
+/**
+ * ----------------------------
+ * | id | name | joinedRoomId |
+ */
 class User {
     constructor(params) {
         const { id, name, client } = params;
