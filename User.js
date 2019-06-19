@@ -38,6 +38,17 @@ class User {
     updateEstimate(value) {
         this.estimate = value;
     }
+
+    resetEstimate() {
+        this.estimate = null;
+    }
+
+    stopEstimate() {
+        this.estimate = null;
+        this.estimating = true;
+        this.joinedRoomId = null;
+        this.createdRoomId = null;
+    }
 }
 
 module.exports = User;

@@ -64,8 +64,8 @@ io.on('connection', client => {
     client.on('startEstimate', handleStartEstimate.bind(null, client));
     client.on('estimate', handleEstimate.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
-    client.on('endEstimate', handleEndEstimate.bind(null, client));
-    client.on('showResult', handleShowResult.bind(null, client));
+    client.on('showEstimateResult', handleShowResult.bind(null, client));
+    client.on('stopEstimate', handleStopEstimate.bind(null, client));
 
     client.on('disconnect', handleDisconnect.bind(null, client));
 });
@@ -223,21 +223,52 @@ function handleEstimate(client, { value }) {
     });
 }
 
-function handleEndEstimate(client, data) {
-    const { roomId } = data;
-    globalEstimates = [];
-    io.sockets.to(roomId).emit('restartEstimate');
+function handleShowResult(client) {
+    const { id } = client;
+    const user = findUser(id);
+    const { joinedRoomId: roomId } = user;
+    if (roomId === null) {
+        console.log(`${user.name} 未加入房间`);
+        const errorMessage = { type: 'showEstimateResult', message: `${user.name} 未加入房间` };
+        client.emit('err', errorMessage);
+        return;
+    }
+    io.sockets.to(roomId).emit('showEstimateResultSuccess');
 }
 
-function handleShowResult(client, data) {
-    const { roomId } = data;
-    io.sockets.to(roomId).emit('showResult');
+function handleRestartEstimate(client) {
+    const { id } = client;
+    const user = findUser(id);
+    const { joinedRoomId: roomId } = user;
+    if (roomId === null) {
+        console.log(`${user.name} 未加入房间`);
+        const errorMessage = { type: 'restartEstimate', message: `${user.name} 未加入房间` };
+        client.emit('err', errorMessage);
+        return;
+    }
+    const room = findRoom(roomId);
+    room.members.forEach(member => {
+        member.resetEstimate();
+    });
+    io.sockets.to(roomId).emit('restartEstimateSuccess');
 }
 
-function handleRestartEstimate(client, data) {
-    const { roomId } = data;
-    globalEstimates = [];
-    io.sockets.to(roomId).emit('restartEstimate');
+function handleStopEstimate(client) {
+    const { id } = client;
+    const user = findUser(id);
+    const { joinedRoomId: roomId } = user;
+    if (roomId === null) {
+        console.log(`${user.name} 未加入房间`);
+        const errorMessage = { type: 'restartEstimate', message: `${user.name} 未加入房间` };
+        client.emit('err', errorMessage);
+        return;
+    }
+    const room = findRoom(roomId);
+    room.members.forEach(member => {
+        member.stopEstimate();
+    });
+    removeRoom(roomId);
+    io.sockets.to(roomId).emit('stopEstimateSuccess');
 }
 
 /**
