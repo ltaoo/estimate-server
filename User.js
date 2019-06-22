@@ -5,8 +5,10 @@ const cuid = require('cuid');
  */
 class User {
     constructor(params) {
-        const { name } = params;
-        this.id = cuid();
+        const { name, client } = params;
+        // 这个 id 是用来根据 client.id 从 userStore 查询用户的
+        this.id = client.id;
+        this.uuid = cuid();
         this.name = name;
         // 加入的房间
         this.joinedRoomId = null;
@@ -16,6 +18,10 @@ class User {
         this.estimating = false;
         this.estimate = null;
     }
+
+    updateId(id) {
+        this.id = id;
+    }
     
     createRoom(room) {
         const { id } = room;
@@ -23,6 +29,14 @@ class User {
         this.createdRoomId = id;
 
         room.addMember(this);
+    }
+
+    joinRoom(id) {
+        this.joinedRoomId = id;
+    }
+
+    leaveRoom() {
+        this.joinedRoomId = null;
     }
 
     startEstimate() {

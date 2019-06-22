@@ -1,52 +1,55 @@
-const express = require('express');
-const http = require('http');
-const socketio = require('socket.io');
+
 const cuid = require('cuid');
 
 const User = require('./User');
-const userStore = require('./userStore');
 const Room = require('./Room');
+const userStore = require('./userStore');
 const roomStore = require('./roomStore');
 
 const authHandler = require('./handlers/auth');
+const roomHandler = require('./handlers/room');
 
 const utils = require('./utils');
+const io = require('./io');
+
+const { noop, genRoomId } = utils;
+// 用户连接池，可以考虑用简单的本地数据库替换
+const {
+    getUsers,
+    addUser,
+    removeUser,
+    findUser,
+    findUserByName,
+} = userStore;
+const {
+    getRooms,
+    addRoom,
+    removeRoom,
+    findRoom,
+} = roomStore;
 
 const {
     handleLogin,
     handleLogout,
+    handleRecover,
 } = authHandler;
-
-const app = express();
-const server = http.createServer(app);
-const io = socketio(server);
-
-// 用来给客户端确认服务端的可用性
-app.get('/api/ping', (req, res) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    if(req.method === 'OPTIONS') {
-        res.sendStatus(200);
-    }
-    res.send('{}');
-});
-
-const { noop, genRoomId } = utils;
-// 用户连接池
-const { getUsers, addUser, removeUser, findUser, findUserByName } = userStore;
-const { getRooms, addRoom, removeRoom, findRoom } = roomStore;
-
+const {
+    handleCreateRoom,
+    handleJoinRoom,
+    handleLeaveRoom,
+} = roomHandler;
 
 io.on('connection', client => {
     console.log('new connection');
-    client.on('recover', handleRecover.bind(null, client));
     // Auth
+    client.on('recover', handleRecover.bind(null, client));
     client.on('login', handleLogin.bind(null, client));
     client.on('logout', handleLogout.bind(null, client));
-
+    // Room
     client.on('createRoom', handleCreateRoom.bind(null, client));
     client.on('joinRoom', handleJoinRoom.bind(null, client));
     client.on('leaveRoom', handleLeaveRoom.bind(null, client));
-
+    // Estimate
     client.on('startEstimate', handleStartEstimate.bind(null, client));
     client.on('estimate', handleEstimate.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
@@ -56,120 +59,11 @@ io.on('connection', client => {
     client.on('disconnect', handleDisconnect.bind(null, client));
 });
 
-const PORT = 3000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`server is listening at port ${PORT}`);
-});
-
-function handleRecover(client, { username }) {
-    // 客户端要求恢复状态，说明是已经登录过，去 store 查询该用户是否真的登录过
-    let user = findUserByName(username);
-    // 用户不存在，让用户重新登录
-    if (user === undefined) {
-        client.emit('recoverFail', {
-            message: '用户不存在，请重新登录',
-        });
-        return;
-    }
-    console.log(`${user.name} recover`);
-    const data = {
-        user,
-        rooms: getRooms(),
-    };
-    const { joinedRoomId } = user;
-    // 如果用户已经加入房间，在重连后仍然加入
-    if (joinedRoomId !== null) {
-        const room = findRoom(joinedRoomId);
-        if (room !== undefined) {
-            client.join(joinedRoomId);
-            room.addMember(user);
-            data.room = room;
-            io.sockets.to(joinedRoomId).emit('globaljoinRoomSuccess', data);
-        }
-    }
-    client.emit('recoverSuccess', data);
-}
-/**
- * @param {Client} client - 客户端
- */
-function handleCreateRoom(client) {
-    const { id } = client;
-    const owner = findUser(id);
-    if (!owner) {
-        client.emit('err', { type: 'createRoom', message: `用户 ${id} 不存在` });
-        return;
-    }
-    const roomId = genRoomId();
-    const newRoom = new Room({ id: roomId, admintor: owner });
-    addRoom(newRoom);
-
-    client.join(roomId);
-    owner.createRoom(newRoom);
-    const roomMembers = newRoom.members;
-    // 可以向全局广播，让客户端更新大厅的房间列表
-    client.emit('createRoomSuccess', {
-        user: owner,
-        room: newRoom,
-    });
-}
-
-function handleJoinRoom(client, { roomId } = {}) {
-    const { id } = client;
-    const user = findUser(id);
-    if (!user) {
-        client.emit('err', { type: 'joinRoom', message: `用户 ${id} 不存在` });
-        return;
-    }
-    console.log(`${id} ${user.name} join room ${roomId}`);
-    const room = findRoom(roomId);
-    if (!room) {
-        const errorMessage = { type: 'joinRoom', message: `房间 ${roomId} 不存在` };
-        client.emit('err', errorMessage);
-        return;
-    }
-    if (room.status === Room.STATUS.STARTED) {
-        const errorMessage = { type: 'joinRoom', message: `${roomId} 已经开始估时` };
-        client.emit('err', errorMessage);
-        return;
-    }
-    client.join(roomId);
-    room.addMember(user);
-    const roomMembers = room.members;
-    io.sockets.to(roomId).emit('joinRoomSuccess', {
-        user,
-        room,
-    });
-}
-
-function handleLeaveRoom(client) {
-    const { id } = client;
-    const user = findUser(id);
-    if (!user) {
-        client.emit('err', { message: `${id} 用户不存在` });
-        return;
-    }
-    const { joinedRoomId: roomId } = user;
-    if (roomId === null) {
-        return;
-    }
-    const room = findRoom(roomId);
-    if (!room) {
-        client.emit('err', { type: 'leaveRoom', message: `${roomId} 房间不存在` });
-        return;
-    }
-    if (room.members.length === 1) {
-        // @TODO 直接从全局移除，这个房间在 io 对象上还存在吗？
-        removeRoom(roomId);
-        io.emit('updateRooms', { rooms: getRooms() });
-        return;
-    }
-    room.removeMember(user);
-    console.log(`${user.name} leave room ${roomId}`);
-    io.sockets.to(roomId).emit('leaveRoom', {
-        user,
-        room,
-    });
-}
+setInterval(() => {
+    console.log(userStore.getUsers());
+    console.log(roomStore.getRooms());
+    console.log('-----', new Date());
+}, 5000);
 
 function handleStartEstimate(client) {
     const { id } = client;
@@ -277,30 +171,6 @@ function handleStopEstimate(client) {
 function handleDisconnect(client) {
     const { id } = client;
     console.log(`${client.id} is disconnect`);
-    const user = findUser(id);
-    if (!user) {
-        client.emit('err', { type: 'disconnect', message: `${id} 用户不存在` });
-        return;
-    }
-    // 判断是否有在房间内
-    const { joinedRoomId: roomId } = user;
-    if (roomId !== null) {
-        // 向该房间的用户广播有人退出了
-        const room = findRoom(roomId);
-        if (!room) {
-            console.log(`room ${roomId} not exist`);
-            return;
-        }
-        room.removeMember(user);
-        io.sockets.to(roomId).emit('leaveRoom', { user, room });
-    }
-
-    // 如果从房间离开前，只剩一个人了，在离开后就可以移除房间
-    // if (room.members.length === 1) {
-    //     removeRoom(room);
-    //     io.emit('updateRooms', { rooms: getRooms() });
-    //     return;
-    // }
 }
 
 function findEstimateById(id, estimates) {

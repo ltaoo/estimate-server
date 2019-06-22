@@ -1,6 +1,7 @@
 const User = require('../User');
 const userStore = require('../userStore');
 const roomStore = require('../roomStore');
+const io = require('../io');
 /**
  * 用户登录，就是创建一个新用户
  * @param {Client} client - 发起登录请求的客户端
@@ -17,6 +18,7 @@ function handleLogin(client, { username }) {
         return;
     }
     const user = new User({
+        client,
         name: username,
     });
     userStore.addUser(user);
@@ -33,7 +35,28 @@ function handleLogout(client) {
     client.disconnect();
 }
 
+function handleRecover(client, { username }) {
+    // 客户端要求恢复状态，说明是已经登录过，去 store 查询该用户是否真的登录过
+    let user = userStore.findUserByName(username);
+    // 用户不存在，让用户重新登录
+    if (user === undefined) {
+        client.emit('recoverFail', {
+            message: '用户不存在，请重新登录',
+        });
+        return;
+    }
+    console.log(`${user.name} recover`);
+    user.updateId(client.id);
+    const data = {
+        user,
+        rooms: roomStore.getRooms(),
+    };
+    const { joinedRoomId } = user;
+    client.emit('recoverSuccess', data);
+}
+
 module.exports = {
     handleLogin,
     handleLogout,
+    handleRecover,
 };
