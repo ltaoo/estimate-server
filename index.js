@@ -1,5 +1,6 @@
-const server = require('http').createServer();
-const io = require('socket.io')(server);
+const express = require('express');
+const http = require('http');
+const socketio = require('socket.io');
 
 const User = require('./User');
 const userStore = require('./userStore');
@@ -8,26 +9,34 @@ const roomStore = require('./roomStore');
 
 const utils = require('./utils');
 
+const app = express();
+const server = http.createServer(app);
+const io = socketio(server);
+
+app.get('/api/ping', (req, res) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    if(req.method === 'OPTIONS') {
+        res.sendStatus(200);
+    }
+    res.send('{}');
+});
+
 const { noop, genRoomId } = utils;
 // 用户连接池
 const { getUsers, addUser, removeUser, findUser, findUserByName } = userStore;
 const { getRooms, addRoom, removeRoom, findRoom } = roomStore;
 
-let globalEstimates = [];
-
-io.on('connection', client => {
-    const { username, refresh } = client.handshake.query;
-    console.log('new connection', client.id, username);
-
+function handleConnection(client, username, refresh) {
     // 在客户端连接后，去数据库查询该用户是否已经连接过
     let user = findUserByName(username);
     if (user && refresh !== '1') {
         // 如果用户已存在
         user.updateClient(client);
-        console.log(`${user.name} exist`, user);
+        console.log(`${user.name} exist login`);
         const { joinedRoomId } = user;
         const data = {
             user,
+            rooms: getRooms(),
         };
         // 如果用户已经加入房间，在重连后仍然加入
         if (joinedRoomId !== null) {
@@ -36,10 +45,8 @@ io.on('connection', client => {
                 client.join(joinedRoomId);
                 room.addMember(user);
                 data.room = room;
-                io.sockets.to(joinedRoomId).emit('joinRoomSuccess', {
-                    user,
-                    room,
-                });
+                client.emit('joinRoomSuccess', data);
+                io.sockets.to(joinedRoomId).emit('globaljoinRoomSuccess', data);
             }
         }
         client.emit('recoverSuccess', data);
@@ -55,6 +62,13 @@ io.on('connection', client => {
     }
     // 向全局广播有新用户加入
     // io.emit('newConnection', { user });
+}
+
+io.on('connection', client => {
+    const { username, refresh } = client.handshake.query;
+    console.log('new connection', client.id, username);
+    handleConnection(client, username, refresh);
+    
     client.on('logout', handleLogout.bind(null, client));
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
@@ -70,15 +84,10 @@ io.on('connection', client => {
     client.on('disconnect', handleDisconnect.bind(null, client));
 });
 
-server.listen(3000, '0.0.0.0', () => {
-    console.log('server is listening at port 3000');
+const PORT = 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`server is listening at port ${PORT}`);
 });
-
-setInterval(() => {
-    console.log('users', getUsers());
-    console.log('rooms', getRooms());
-    console.log('--------');
-}, 5000);
 
 /**
  * 客户端注销
