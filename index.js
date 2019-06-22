@@ -1,18 +1,27 @@
 const express = require('express');
 const http = require('http');
 const socketio = require('socket.io');
+const cuid = require('cuid');
 
 const User = require('./User');
 const userStore = require('./userStore');
 const Room = require('./Room');
 const roomStore = require('./roomStore');
 
+const authHandler = require('./handlers/auth');
+
 const utils = require('./utils');
+
+const {
+    handleLogin,
+    handleLogout,
+} = authHandler;
 
 const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
+// 用来给客户端确认服务端的可用性
 app.get('/api/ping', (req, res) => {
     res.header('Access-Control-Allow-Origin', '*');
     if(req.method === 'OPTIONS') {
@@ -26,49 +35,12 @@ const { noop, genRoomId } = utils;
 const { getUsers, addUser, removeUser, findUser, findUserByName } = userStore;
 const { getRooms, addRoom, removeRoom, findRoom } = roomStore;
 
-function handleConnection(client, username, refresh) {
-    // 在客户端连接后，去数据库查询该用户是否已经连接过
-    let user = findUserByName(username);
-    if (user && refresh !== '1') {
-        // 如果用户已存在
-        user.updateClient(client);
-        console.log(`${user.name} exist login`);
-        const { joinedRoomId } = user;
-        const data = {
-            user,
-            rooms: getRooms(),
-        };
-        // 如果用户已经加入房间，在重连后仍然加入
-        if (joinedRoomId !== null) {
-            const room = findRoom(joinedRoomId);
-            if (room !== undefined) {
-                client.join(joinedRoomId);
-                room.addMember(user);
-                data.room = room;
-                client.emit('joinRoomSuccess', data);
-                io.sockets.to(joinedRoomId).emit('globaljoinRoomSuccess', data);
-            }
-        }
-        client.emit('recoverSuccess', data);
-    } else {
-        user = new User({
-            id: client.id,
-            name: username,
-            client,
-        });
-        console.log(`new user ${user.name}`);
-        addUser(user);
-        client.emit('loginSuccess', { user, rooms: getRooms() });
-    }
-    // 向全局广播有新用户加入
-    // io.emit('newConnection', { user });
-}
 
 io.on('connection', client => {
-    const { username, refresh } = client.handshake.query;
-    console.log('new connection', client.id, username);
-    handleConnection(client, username, refresh);
-    
+    console.log('new connection');
+    client.on('recover', handleRecover.bind(null, client));
+    // Auth
+    client.on('login', handleLogin.bind(null, client));
     client.on('logout', handleLogout.bind(null, client));
 
     client.on('createRoom', handleCreateRoom.bind(null, client));
@@ -89,16 +61,34 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`server is listening at port ${PORT}`);
 });
 
-/**
- * 客户端注销
- */
-function handleLogout(client) {
-    const { id } = client;
-    removeUser(id);
-    client.emit('logoutSuccess');
-    client.disconnect();
+function handleRecover(client, { username }) {
+    // 客户端要求恢复状态，说明是已经登录过，去 store 查询该用户是否真的登录过
+    let user = findUserByName(username);
+    // 用户不存在，让用户重新登录
+    if (user === undefined) {
+        client.emit('recoverFail', {
+            message: '用户不存在，请重新登录',
+        });
+        return;
+    }
+    console.log(`${user.name} recover`);
+    const data = {
+        user,
+        rooms: getRooms(),
+    };
+    const { joinedRoomId } = user;
+    // 如果用户已经加入房间，在重连后仍然加入
+    if (joinedRoomId !== null) {
+        const room = findRoom(joinedRoomId);
+        if (room !== undefined) {
+            client.join(joinedRoomId);
+            room.addMember(user);
+            data.room = room;
+            io.sockets.to(joinedRoomId).emit('globaljoinRoomSuccess', data);
+        }
+    }
+    client.emit('recoverSuccess', data);
 }
-
 /**
  * @param {Client} client - 客户端
  */

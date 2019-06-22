@@ -1,11 +1,12 @@
+const cuid = require('cuid');
 /**
  * ----------------------------
  * | id | name | joinedRoomId |
  */
 class User {
     constructor(params) {
-        const { id, name, client } = params;
-        this.id = id;
+        const { name } = params;
+        this.id = cuid();
         this.name = name;
         // 加入的房间
         this.joinedRoomId = null;
@@ -14,13 +15,6 @@ class User {
         // 是否正在估时
         this.estimating = false;
         this.estimate = null;
-
-        // const clientKey = Symbol('client');
-        // this[clientKey] = client;
-    }
-
-    updateClient(client) {
-        this.id = client.id;
     }
     
     createRoom(room) {
