@@ -90,11 +90,11 @@ function handleLeaveRoom(client) {
         client.emit('leaveRoomFail', { message: `${roomId} 房间不存在` });
         return;
     }
-    if (room.members.length === 1) {
-        // @TODO 直接从全局移除，这个房间在 io 对象上还存在吗？
-        removeRoom(roomId);
-        io.emit('updateRooms', { rooms: getRooms() });
-    }
+    // if (room.members.length === 1) {
+    //     // @TODO 直接从全局移除，这个房间在 io 对象上还存在吗？
+    //     removeRoom(roomId);
+    //     io.emit('updateRooms', { rooms: getRooms() });
+    // }
     user.leaveRoom();
     room.removeMember(user);
     console.log(`${user.name} leave room ${roomId}`);
