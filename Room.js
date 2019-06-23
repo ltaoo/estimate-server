@@ -12,7 +12,7 @@ class Room {
         this.status = ENABLE;
         this.members = [];
 
-        this.setAdmintor(admintor);
+        // this.setAdmintor(admintor);
     }
 
     setAdmintor(admintor) {

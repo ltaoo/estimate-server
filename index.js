@@ -57,8 +57,8 @@ io.on('connection', client => {
     client.on('estimate', handleEstimate.bind(null, client));
     client.on('backEstimate', handleBackEstimate.bind(null, client));
     client.on('clearEstimate', handleClearEstimate.bind(null, client));
-    client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('showEstimateResult', handleShowResult.bind(null, client));
+    client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('stopEstimate', handleStopEstimate.bind(null, client));
     // Disconnect
     client.on('disconnect', handleDisconnect.bind(null, client));

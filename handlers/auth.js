@@ -52,6 +52,7 @@ function handleRecover(client, { username }) {
         rooms: roomStore.getRooms(),
     };
     const { joinedRoomId } = user;
+    client.join(joinedRoomId);
     client.emit('recoverSuccess', data);
 }
 

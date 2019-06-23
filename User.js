@@ -14,9 +14,13 @@ class User {
         this.joinedRoomId = null;
         // 自己创建的房间，大部分情况下和 joinedRoomId 是相同的
         this.createdRoomId = null;
+        // 下面三个状态用于估时后在哪个页面
         // 是否正在估时
         this.estimating = false;
+        // 是否给出了估时
         this.estimate = null;
+        // 是否在结果页
+        this.showResult = false;
     }
 
     updateId(id) {
@@ -43,6 +47,14 @@ class User {
         this.estimating = true;
     }
 
+    showResult() {
+        this.showResult = true;
+    }
+
+    clearEstimate() {
+        this.estimate = null;
+    }
+
     updateEstimate(value) {
         this.estimate = value;
     }
@@ -53,9 +65,10 @@ class User {
 
     stopEstimate() {
         this.estimate = null;
-        this.estimating = true;
         this.joinedRoomId = null;
         this.createdRoomId = null;
+        this.estimating = false;
+        this.showResult = false;
     }
 }
 

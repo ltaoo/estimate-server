@@ -14,11 +14,11 @@ function handleStartEstimate(client) {
         return;
     }
     const room = roomStore.findRoom(roomId);
-    client.join(roomId);
     if (!room) {
         client.emit('startEstimateFail', { message: `房间 ${roomId} 不存在` });
         return;
     }
+    client.join(roomId);
     // 房间里的人都要开始
     room.members.forEach(u => {
         u.startEstimate();
@@ -33,7 +33,14 @@ function handleBackEstimate(client) {
     const user = userStore.findUser(id);
     const { joinedRoomId } = user;
     const room = roomStore.findRoom(joinedRoomId);
+    room.addMember(user);
     client.emit('backEstimateSuccess', { user, room });
+    io.sockets.to(joinedRoomId).emit('globalBackEstimateSuccess', {
+        user,
+        room,
+        // 房间内所有成员都给出了估时，就通知客户端可以展示估时
+        showEstimate: room.members.every(user => user.estimate !== null),
+    });
 }
 
 function handleEstimate(client, { value }) {
@@ -53,6 +60,7 @@ function handleEstimate(client, { value }) {
     console.log(`${user.name} give estimate ${value}`);
     user.updateEstimate(value);
     const { members } = room;
+    console.log('emit global estimate success', roomId);
     client.emit('estimateSuccess', { user, room });
     io.sockets.to(roomId).emit('globalEstimateSuccess', {
         user,
@@ -67,14 +75,18 @@ function handleEstimate(client, { value }) {
  * @param {*} client 
  * @param {*} param1 
  */
-function handleClearEstimate(client, { value }) {
+function handleClearEstimate(client) {
     const { id } = client;
     const user = userStore.findUser(id);
+    // 如果是在估时页面关闭，也会触发该事件
+    if (user === undefined) {
+        return;
+    }
     const { joinedRoomId } = user;
     const room = roomStore.findRoom(joinedRoomId);
     user.clearEstimate();
     client.emit('clearEstimateSuccess', { user, room });
-    client.emit('globalClearEstimateSuccess', { user, room  });
+    io.sockets.to(roomId).emit('globalClearEstimateSuccess', { user, room });
 }
 
 function handleShowResult(client) {
@@ -86,7 +98,12 @@ function handleShowResult(client) {
         client.emit('showEstimateResultFail', { message: `${user.name} 未加入房间` });
         return;
     }
-    client.emit('showEstimateResultSuccess');
+    const room = roomStore.findRoom(roomId);
+    room.members.forEach((member) => {
+        console.log(member, member.showResult);
+        // member.showResult();
+    });
+    client.emit('showEstimateResultSuccess', { user });
     io.sockets.to(roomId).emit('globalShowEstimateResultSuccess');
 }
 
