@@ -99,11 +99,19 @@ function handleShowResult(client) {
         return;
     }
     const room = roomStore.findRoom(roomId);
+    const estimates = room.members.map((member) => {
+        return {
+            id: member.id,
+            name: member.name,
+            estimate: member.estimate,
+        };
+    });
     room.members.forEach((member) => {
+        member.clearEstimate();
         member.updateShowResult(true);
     });
     client.emit('showEstimateResultSuccess', { user });
-    io.sockets.to(roomId).emit('globalShowEstimateResultSuccess');
+    io.sockets.to(roomId).emit('globalShowEstimateResultSuccess', { estimates });
 }
 
 function handleRestartEstimate(client) {
