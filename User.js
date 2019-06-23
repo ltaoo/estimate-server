@@ -47,7 +47,7 @@ class User {
         this.estimating = true;
     }
 
-    showResult() {
+    updateShowResult() {
         this.showResult = true;
     }
 

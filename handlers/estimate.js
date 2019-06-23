@@ -86,7 +86,7 @@ function handleClearEstimate(client) {
     const room = roomStore.findRoom(joinedRoomId);
     user.clearEstimate();
     client.emit('clearEstimateSuccess', { user, room });
-    io.sockets.to(roomId).emit('globalClearEstimateSuccess', { user, room });
+    io.sockets.to(joinedRoomId).emit('globalClearEstimateSuccess', { user, room });
 }
 
 function handleShowResult(client) {
@@ -100,8 +100,7 @@ function handleShowResult(client) {
     }
     const room = roomStore.findRoom(roomId);
     room.members.forEach((member) => {
-        console.log(member, member.showResult);
-        // member.showResult();
+        member.updateShowResult(true);
     });
     client.emit('showEstimateResultSuccess', { user });
     io.sockets.to(roomId).emit('globalShowEstimateResultSuccess');
