@@ -1,7 +1,6 @@
 const userStore = require('../userStore');
 const roomStore = require('../roomStore');
 const Room = require('../Room');
-const utils = require('../utils');
 const io = require('../io');
 
 function handleStartEstimate(client) {
@@ -22,7 +21,7 @@ function handleStartEstimate(client) {
         return;
     }
     // 房间里的人都要开始
-    room.members.forEach(member => {
+    room.members.forEach((member) => {
         member.startEstimate();
     });
     room.updateStatus(Room.STATUS.STARTED);
@@ -60,11 +59,11 @@ function handleEstimate(client, { value }) {
     const { members } = room;
     const response = { user, room };
     client.emit('estimateSuccess', response);
-    io.sockets.to(roomId).emit('globalEstimateSuccess', {
+    io.sockets.to(joinedRoomId).emit('globalEstimateSuccess', {
         user,
         room,
         // 房间内所有成员都给出了估时，就通知客户端可以展示估时
-        showEstimate: members.every(user => user.estimate !== null),
+        showEstimate: members.every(member => member.estimate !== null),
     });
 }
 
@@ -103,13 +102,11 @@ function handleShowResult(client) {
         return;
     }
     const room = roomStore.findRoom(joinedRoomId);
-    const estimates = room.members.map((member) => {
-        return {
+    const estimates = room.members.map(member => ({
             id: member.id,
             name: member.name,
             estimate: member.estimate,
-        };
-    });
+        }));
     room.members.forEach((member) => {
         member.clearEstimate();
         member.updateShowResult(true);
@@ -135,7 +132,7 @@ function handleRestartEstimate(client) {
         return;
     }
     const room = roomStore.findRoom(joinedRoomId);
-    room.members.forEach(member => {
+    room.members.forEach((member) => {
         member.resetEstimate();
     });
     client.emit('globalRestartEstimateSuccess');
@@ -159,10 +156,10 @@ function handleStopEstimate(client) {
         return;
     }
     const room = roomStore.findRoom(joinedRoomId);
-    room.members.forEach(member => {
+    room.members.forEach((member) => {
         member.stopEstimate();
     });
-    removeRoom(joinedRoomId);
+    roomStore.removeRoom(joinedRoomId);
     client.emit('stopEstimateSuccess');
     io.sockets.to(joinedRoomId).emit('globalStopEstimateSuccess');
 }
@@ -174,4 +171,4 @@ module.exports = {
     handleShowResult,
     handleRestartEstimate,
     handleStopEstimate,
-}
+};
