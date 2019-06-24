@@ -49,6 +49,11 @@ function handleJoinRoom(client, { roomId } = {}) {
         client.emit('joinRoomFail', { code: 200, message: `用户 ${id} 不存在` });
         return;
     }
+    const { joinedRoomId } = user;
+    if (joinedRoomId !== null) {
+        client.emit('joinRoomFail', { code: 201, message: `已经加入了 ${joinedRoomId} 房间` });
+        return;
+    }
     console.log(`${user.name} join room ${roomId}`);
     const room = roomStore.findRoom(roomId);
     if (!room) {
@@ -64,6 +69,7 @@ function handleJoinRoom(client, { roomId } = {}) {
     //     client.emit('err', errorMessage);
     //     return;
     // }
+    user.joinRoom(room);
     client.join(roomId);
     // 检查是不是重复加入房间了
     if (!room.members.find(member => member.name === user.name)) {

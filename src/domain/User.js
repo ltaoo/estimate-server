@@ -29,13 +29,14 @@ class User {
 
     createRoom(room) {
         const { id } = room;
+        this.joinedRoomId = id;
         this.createdRoomId = id;
 
         room.addMember(this);
     }
 
-    joinRoom(id) {
-        this.joinedRoomId = id;
+    joinRoom(room) {
+        this.joinedRoomId = room.id;
     }
 
     leaveRoom() {

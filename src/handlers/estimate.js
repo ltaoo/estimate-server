@@ -108,7 +108,7 @@ function handleShowResult(client) {
             estimate: member.estimate,
         }));
     room.members.forEach((member) => {
-        member.clearEstimate();
+        // member.clearEstimate();
         member.updateShowResult(true);
     });
     client.emit('showEstimateResultSuccess', { user, estimates });

@@ -43,6 +43,7 @@ function handleLogout(client) {
  * @param {string} uuid
  */
 function handleReconnect(client, { uuid }) {
+    console.log(`reconnect handler ${uuid}`);
     // 去 store 查询该用户是否真的登录过
     const user = userStore.findUserByUuid(uuid);
     // 用户不存在，让用户重新登录

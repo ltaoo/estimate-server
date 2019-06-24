@@ -1,3 +1,5 @@
+const userStore = require('./src/store/userStore');
+const roomStore = require('./src/store/roomStore');
 const authHandler = require('./src/handlers/auth');
 const roomHandler = require('./src/handlers/room');
 const estimateHandler = require('./src/handlers/estimate');
@@ -19,7 +21,6 @@ const {
 const {
     handleStartEstimate,
     handleEstimate,
-    handleBackEstimate,
     handleClearEstimate,
     handleShowResult,
     handleRestartEstimate,
@@ -28,7 +29,7 @@ const {
 
 io.on('connection', (client) => {
     console.log('new connection');
-    client.on('reconnect', handleReconnect.bind(null, client));
+    client.on('recover', handleReconnect.bind(null, client));
     client.on('disconnect', handleDisconnect.bind(null, client));
     // Auth
     client.on('login', handleLogin.bind(null, client));
@@ -40,9 +41,13 @@ io.on('connection', (client) => {
     // Estimate
     client.on('startEstimate', handleStartEstimate.bind(null, client));
     client.on('estimate', handleEstimate.bind(null, client));
-    client.on('backEstimate', handleBackEstimate.bind(null, client));
     client.on('clearEstimate', handleClearEstimate.bind(null, client));
     client.on('showEstimateResult', handleShowResult.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('stopEstimate', handleStopEstimate.bind(null, client));
 });
+
+setInterval(() => {
+    console.log(userStore.getUsers());
+    console.log(roomStore.getRooms());
+}, 5000);
