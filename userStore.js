@@ -14,6 +14,9 @@ module.exports = (function () {
     function findUserByName(name) {
         return globalUsers.find(u => u.name === name);
     }
+    function findUserByUuid(uuid) {
+        return globalUsers.find(u => u.uuid === uuid);
+    }
     function removeUser(id) {
         globalUsers = globalUsers.filter(user => user.id !== id);
     }
@@ -22,6 +25,7 @@ module.exports = (function () {
         addUser,
         findUser,
         findUserByName,
+        findUserByUuid,
         removeUser,
     };
 }());

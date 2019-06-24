@@ -5,9 +5,9 @@ const cuid = require('cuid');
  */
 class User {
     constructor(params) {
-        const { name, client } = params;
+        const { id, name } = params;
         // 这个 id 是用来根据 client.id 从 userStore 查询用户的
-        this.id = client.id;
+        this.id = id;
         this.uuid = cuid();
         this.name = name;
         // 加入的房间
@@ -29,7 +29,6 @@ class User {
     
     createRoom(room) {
         const { id } = room;
-        this.isAdmintor = true;
         this.createdRoomId = id;
 
         room.addMember(this);

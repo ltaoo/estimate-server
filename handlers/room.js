@@ -37,17 +37,23 @@ function handleCreateRoom(client) {
     });
 }
 
+/**
+ * 客户端加入房间
+ * @param {Client} client
+ * @param {string} roomId - 要加入的房间 id
+ */
 function handleJoinRoom(client, { roomId } = {}) {
     const { id } = client;
     const user = userStore.findUser(id);
-    if (!user) {
-        client.emit('err', { type: 'joinRoom', message: `用户 ${id} 不存在` });
+    if (user === undefined) {
+        client.emit('joinRoomFail', { code: 200, message: `用户 ${id} 不存在` });
         return;
     }
-    console.log(`${id} ${user.name} join room ${roomId}`);
+    console.log(`${user.name} join room ${roomId}`);
     const room = roomStore.findRoom(roomId);
     if (!room) {
         client.emit('joinRoomFail', {
+            code: 201,
             message: `房间 ${roomId} 不存在`,
         });
         return;
