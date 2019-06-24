@@ -7,12 +7,10 @@ const STARTED = 'STARTED';
  */
 class Room {
     constructor(params) {
-        const { id, admintor } = params;
+        const { id } = params;
         this.id = id;
         this.status = ENABLE;
         this.members = [];
-
-        // this.setAdmintor(admintor);
     }
 
     setAdmintor(admintor) {
@@ -21,6 +19,7 @@ class Room {
 
     addMember(user) {
         this.members.push(user);
+        /* eslint-disable no-param-reassign */
         user.joinedRoomId = this.id;
     }
 

@@ -4,7 +4,7 @@ const Room = require('../Room');
 const utils = require('../utils');
 const io = require('../io');
 
-const { noop, genRoomId } = utils;
+const { genRoomId } = utils;
 /**
  * @param {Client} client - 客户端
  */
@@ -69,7 +69,6 @@ function handleJoinRoom(client, { roomId } = {}) {
     if (!room.members.find(member => member.name === user.name)) {
         room.addMember(user);
     }
-    const roomMembers = room.members;
     client.emit('joinRoomSuccess', {
         user,
         room,

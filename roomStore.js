@@ -1,4 +1,4 @@
-const { getRooms, addRoom, findRoom, removeRoom } = (function () {
+module.exports = (function utils() {
     let globalRooms = [];
     function getRooms() {
         return globalRooms;
@@ -26,10 +26,3 @@ const { getRooms, addRoom, findRoom, removeRoom } = (function () {
         removeRoom,
     };
 }());
-
-module.exports = {
-    getRooms,
-    addRoom,
-    findRoom,
-    removeRoom,
-};

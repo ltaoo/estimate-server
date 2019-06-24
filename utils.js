@@ -1,6 +1,6 @@
 function noop() {}
 
-const genRoomId = (function () {
+const genRoomId = (function util() {
     let roomId = 0;
     return () => {
         roomId += 1;

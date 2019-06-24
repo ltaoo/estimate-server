@@ -1,4 +1,4 @@
-module.exports = (function () {
+module.exports = (function utils() {
     // 一个全局的客户端存储，每个客户端表示一个用户，正常来说是保存到数据库比如 redis 中
     let globalUsers = [];
     function getUsers() {
@@ -29,4 +29,3 @@ module.exports = (function () {
         removeUser,
     };
 }());
-

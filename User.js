@@ -26,7 +26,7 @@ class User {
     updateId(id) {
         this.id = id;
     }
-    
+
     createRoom(room) {
         const { id } = room;
         this.createdRoomId = id;

@@ -7,21 +7,6 @@ const estimateHandler = require('./handlers/estimate');
 
 const io = require('./io');
 
-// 用户连接池，可以考虑用简单的本地数据库替换
-const {
-    getUsers,
-    addUser,
-    removeUser,
-    findUser,
-    findUserByName,
-} = userStore;
-const {
-    getRooms,
-    addRoom,
-    removeRoom,
-    findRoom,
-} = roomStore;
-
 const {
     handleLogin,
     handleLogout,
@@ -42,7 +27,34 @@ const {
     handleStopEstimate,
 } = estimateHandler;
 
-io.on('connection', client => {
+/**
+ * 客户端断开了连接
+ * @param {Client} client
+ */
+function handleDisconnect(client) {
+    const { id } = client;
+    console.log(`${client.id} is disconnect`);
+    const user = userStore.findUser(id);
+    if (user === undefined) {
+        return;
+    }
+    const { joinedRoomId } = user;
+    if (joinedRoomId === null) {
+        return;
+    }
+    const room = roomStore.findRoom(joinedRoomId);
+    if (room === undefined) {
+        return;
+    }
+    room.removeMember(user);
+    io.sockets.to(joinedRoomId).emit('globalLeaveRoomSuccess', {
+        user,
+        room,
+    });
+}
+
+
+io.on('connection', (client) => {
     console.log('new connection');
     // Auth
     client.on('recover', handleRecover.bind(null, client));
@@ -69,29 +81,3 @@ setInterval(() => {
     console.log(roomStore.getRooms());
     console.log('-----', new Date());
 }, 5000);
-
-/**
- * 客户端断开了连接
- * @param {Client} client 
- */
-function handleDisconnect(client) {
-    const { id } = client;
-    console.log(`${client.id} is disconnect`);
-    const user = userStore.findUser(id);
-    if (user === undefined) {
-        return;
-    }
-    const { joinedRoomId } = user;
-    if (joinedRoomId === null) {
-        return;
-    }
-    const room = roomStore.findRoom(joinedRoomId);
-    if (room === undefined) {
-        return;
-    }
-    room.removeMember(user);
-    io.sockets.to(joinedRoomId).emit('globalLeaveRoomSuccess', {
-        user,
-        room,
-    });
-}
