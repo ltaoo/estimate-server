@@ -1,6 +1,6 @@
-const User = require('../User');
-const userStore = require('../userStore');
-const roomStore = require('../roomStore');
+const User = require('../domain/User');
+const userStore = require('../store/userStore');
+const roomStore = require('../store/roomStore');
 
 /**
  * 用户登录，就是创建一个新用户

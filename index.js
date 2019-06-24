@@ -1,11 +1,12 @@
-const userStore = require('./userStore');
-const roomStore = require('./roomStore');
+const userStore = require('./src/store/userStore');
+const roomStore = require('./src/store/roomStore');
 
-const authHandler = require('./handlers/auth');
-const roomHandler = require('./handlers/room');
-const estimateHandler = require('./handlers/estimate');
+const authHandler = require('./src/handlers/auth');
+const roomHandler = require('./src/handlers/room');
+const estimateHandler = require('./src/handlers/estimate');
 
-const io = require('./io');
+// server.listen
+const io = require('./src/io');
 
 const {
     handleLogin,

@@ -1,6 +1,6 @@
-const userStore = require('../userStore');
-const roomStore = require('../roomStore');
-const Room = require('../Room');
+const userStore = require('../store/userStore');
+const roomStore = require('../store/roomStore');
+const Room = require('../domain/Room');
 const io = require('../io');
 
 function handleStartEstimate(client) {
