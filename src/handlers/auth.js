@@ -2,6 +2,8 @@ const User = require('../domain/User');
 const userStore = require('../store/userStore');
 const roomStore = require('../store/roomStore');
 
+const io = require('../io');
+
 /**
  * 用户登录，就是创建一个新用户
  * @param {Client} client - 发起登录请求的客户端
@@ -40,28 +42,55 @@ function handleLogout(client) {
  * @param {Client} client
  * @param {string} uuid
  */
-function handleRecover(client, { uuid }) {
+function handleReconnect(client, { uuid }) {
     // 去 store 查询该用户是否真的登录过
     const user = userStore.findUserByUuid(uuid);
     // 用户不存在，让用户重新登录
     if (user === undefined) {
-        client.emit('recoverFail', {
+        client.emit('reconnectFail', {
             code: 101,
             message: '用户不存在，请重新登录',
         });
         return;
     }
-    console.log(`${user.name} recover`);
+    console.log(`${user.name} reconnect`);
     user.updateId(client.id);
     const response = {
         user,
         rooms: roomStore.getRooms(),
     };
-    client.emit('recoverSuccess', response);
+    client.emit('reconnectSuccess', response);
+}
+
+/**
+ * 客户端断开了连接
+ * @param {Client} client
+ */
+function handleDisconnect(client) {
+    const { id } = client;
+    console.log(`${client.id} is disconnect`);
+    const user = userStore.findUser(id);
+    if (user === undefined) {
+        return;
+    }
+    const { joinedRoomId } = user;
+    if (joinedRoomId === null) {
+        return;
+    }
+    const room = roomStore.findRoom(joinedRoomId);
+    if (room === undefined) {
+        return;
+    }
+    room.removeMember(user);
+    io.sockets.to(joinedRoomId).emit('globalLeaveRoomSuccess', {
+        user,
+        room,
+    });
 }
 
 module.exports = {
     handleLogin,
     handleLogout,
-    handleRecover,
+    handleReconnect,
+    handleDisconnect,
 };

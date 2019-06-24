@@ -1,6 +1,3 @@
-const userStore = require('./src/store/userStore');
-const roomStore = require('./src/store/roomStore');
-
 const authHandler = require('./src/handlers/auth');
 const roomHandler = require('./src/handlers/room');
 const estimateHandler = require('./src/handlers/estimate');
@@ -11,7 +8,8 @@ const io = require('./src/io');
 const {
     handleLogin,
     handleLogout,
-    handleRecover,
+    handleReconnect,
+    handleDisconnect,
 } = authHandler;
 const {
     handleCreateRoom,
@@ -28,37 +26,11 @@ const {
     handleStopEstimate,
 } = estimateHandler;
 
-/**
- * 客户端断开了连接
- * @param {Client} client
- */
-function handleDisconnect(client) {
-    const { id } = client;
-    console.log(`${client.id} is disconnect`);
-    const user = userStore.findUser(id);
-    if (user === undefined) {
-        return;
-    }
-    const { joinedRoomId } = user;
-    if (joinedRoomId === null) {
-        return;
-    }
-    const room = roomStore.findRoom(joinedRoomId);
-    if (room === undefined) {
-        return;
-    }
-    room.removeMember(user);
-    io.sockets.to(joinedRoomId).emit('globalLeaveRoomSuccess', {
-        user,
-        room,
-    });
-}
-
-
 io.on('connection', (client) => {
     console.log('new connection');
+    client.on('reconnect', handleReconnect.bind(null, client));
+    client.on('disconnect', handleDisconnect.bind(null, client));
     // Auth
-    client.on('recover', handleRecover.bind(null, client));
     client.on('login', handleLogin.bind(null, client));
     client.on('logout', handleLogout.bind(null, client));
     // Room
@@ -73,12 +45,4 @@ io.on('connection', (client) => {
     client.on('showEstimateResult', handleShowResult.bind(null, client));
     client.on('restartEstimate', handleRestartEstimate.bind(null, client));
     client.on('stopEstimate', handleStopEstimate.bind(null, client));
-    // Disconnect
-    client.on('disconnect', handleDisconnect.bind(null, client));
 });
-
-setInterval(() => {
-    console.log(userStore.getUsers());
-    console.log(roomStore.getRooms());
-    console.log('-----', new Date());
-}, 5000);
