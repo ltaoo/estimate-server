@@ -160,8 +160,11 @@ function handleStopEstimate(client) {
         member.stopEstimate();
     });
     roomStore.removeRoom(joinedRoomId);
-    client.emit('stopEstimateSuccess');
-    io.sockets.to(joinedRoomId).emit('globalStopEstimateSuccess');
+    const response = {
+        rooms: roomStore.getRooms(),
+    };
+    client.emit('stopEstimateSuccess', response);
+    io.sockets.to(joinedRoomId).emit('globalStopEstimateSuccess', response);
 }
 
 module.exports = {

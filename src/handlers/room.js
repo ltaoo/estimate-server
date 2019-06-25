@@ -13,7 +13,12 @@ function handleCreateRoom(client) {
     const { id } = client;
     const creator = userStore.findUser(id);
     if (!creator) {
-        client.emit('err', { type: 'createRoom', message: `用户 ${id} 不存在` });
+        client.emit('createRoomFail', { code: 203, message: `用户 ${id} 不存在` });
+        return;
+    }
+    const { createdRoomId } = creator;
+    if (createdRoomId !== null) {
+        client.emit('createRoomFail', { code: 204, message: `已创建房间 ${createdRoomId}` });
         return;
     }
     const roomId = genRoomId();
@@ -58,7 +63,7 @@ function handleJoinRoom(client, { roomId } = {}) {
     const room = roomStore.findRoom(roomId);
     if (!room) {
         client.emit('joinRoomFail', {
-            code: 201,
+            code: 202,
             message: `房间 ${roomId} 不存在`,
         });
         return;
